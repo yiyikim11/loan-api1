@@ -1,23 +1,68 @@
-# .github/workflows/ci.yml
-name: CI
+name: ci
 
 on:
   push:
     branches: [main]
-  pull_request:          # also run on every pull request
+  pull_request:
+    branches: [main]
 
 jobs:
   test:
-    runs-on: ubuntu-latest         # a fresh GitHub-hosted Linux machine for each run
+    runs-on: ubuntu-latest
+    env:
+      SCORING_STUB: "1"
     steps:
-      - uses: actions/checkout@v7  # get the repository's code
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: pip               # reuse downloaded packages between runs
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
-      - name: Train the model the tests load
-        run: python train.py
-      - name: Run tests
-        run: pytest -v
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  scoring-image:
+    # Builds and runs the scoring image so a broken dependency set or model fails before deploy.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f Dockerfile.scoring -t loan-scoring .
+      - run: docker run -d --name scoring -p 5001:5001 loan-scoring
+      - name: Wait for /ping and score the known applicant
+        run: |
+          for i in $(seq 1 30); do curl -fs localhost:5001/ping && break; sleep 2; done
+          curl -fs localhost:5001/ping || { docker logs scoring; exit 1; }
+          curl -fs localhost:5001/invocations -H 'Content-Type: application/json' \
+            -d '{"dataframe_split":{"columns":["amount_usd","term_months","monthly_income_usd","previous_loans","late_payments"],"data":[[1500,12,400.0,0,0]]}}' \
+            | tee /dev/stderr | grep -q '0.0178'
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    # Only the pipeline deploys: main, after tests and the secret scan pass.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, scoring-image, secrets]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trigger Render deploys
+        env:
+          HOOK_SCORING: ${{ secrets.RENDER_DEPLOY_HOOK_SCORING }}
+          HOOK_API: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+        run: |
+          curl -fsS -o /dev/null "${HOOK_SCORING}&ref=${GITHUB_SHA}"
+          curl -fsS -o /dev/null "${HOOK_API}&ref=${GITHUB_SHA}"
+      - name: Smoke test the live API
+        env:
+          API_URL: ${{ vars.API_URL }}
+          API_KEY: ${{ secrets.API_KEY }}
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: python scripts/smoke_check.py
