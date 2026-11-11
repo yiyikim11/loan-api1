@@ -18,7 +18,8 @@ MODEL_NAME = os.getenv("MODEL_NAME", "loan-default")
 MODEL_ALIAS = os.getenv("MODEL_ALIAS", "champion")
 SCORING_URL = os.getenv("SCORING_URL")  # optional: remote MLflow-style scoring service
 API_KEY = os.getenv("API_KEY")  # unset locally and in CI: no key needed
-GIT_SHA = os.getenv("GIT_SHA", "dev")  # set at build time by the pipeline
+# Dockerfile build-arg, or Render's automatic RENDER_GIT_COMMIT on deploy.
+GIT_SHA = os.getenv("GIT_SHA") or os.getenv("RENDER_GIT_COMMIT", "dev")
 FEATURES = ["amount_usd", "term_months", "monthly_income_usd", "previous_loans", "late_payments"]
 
 
@@ -103,6 +104,12 @@ def score(features: LoanFeatures) -> Prediction:
     probability = float(raw[0, 1] if getattr(raw, "ndim", 1) == 2 else raw[0])
     band = "low" if probability < 0.2 else "medium" if probability < 0.5 else "high"
     return Prediction(default_probability=round(probability, 3), risk_band=band, model_version=ml["version"])
+
+
+@app.get("/live")
+def live():
+    """Liveness for Render healthCheckPath — process is up."""
+    return {"status": "ok"}
 
 
 @app.get("/health")
