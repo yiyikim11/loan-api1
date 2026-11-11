@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 model.joblib
+scoring_model.joblib
 models/
 mlflow.db
 mlartifacts/

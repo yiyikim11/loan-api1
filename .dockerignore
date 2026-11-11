@@ -5,4 +5,9 @@ __pycache__/
 .pytest_cache/
 .devcontainer/
 model.joblib
+scoring_model.joblib
 models/
+mlflow.db
+mlartifacts/
+mlruns/
+

@@ -1,0 +1,19 @@
+# Scoring microservice: trains a pinned model and serves MLflow-style /ping + /invocations.
+FROM python:3.11-slim AS builder
+WORKDIR /app
+COPY requirements-scoring.txt .
+RUN pip install --no-cache-dir -r requirements-scoring.txt
+COPY train.py train_scoring.py ./
+RUN python train_scoring.py
+
+FROM python:3.11-slim
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PORT=5001
+WORKDIR /app
+COPY requirements-scoring.txt .
+RUN pip install --no-cache-dir -r requirements-scoring.txt \
+    && useradd --create-home --uid 1000 appuser
+COPY --from=builder /app/scoring_model.joblib .
+COPY scoring_server.py .
+USER appuser
+EXPOSE 5001
+CMD ["python", "scoring_server.py"]

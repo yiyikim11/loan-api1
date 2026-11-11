@@ -1,0 +1,22 @@
+# autoDeploy is off: the only way a deploy starts is the GitHub Actions deploy hook.
+services:
+  - type: web
+    name: loan-scoring
+    runtime: docker
+    dockerfilePath: ./Dockerfile.scoring
+    plan: free
+    autoDeploy: false
+    healthCheckPath: /ping
+
+  - type: web
+    name: loan-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.prod
+    plan: free
+    autoDeploy: false
+    healthCheckPath: /live
+    envVars:
+      - key: SCORING_URL   # public URL of loan-scoring, e.g. https://loan-scoring-xxxx.onrender.com
+        sync: false
+      - key: API_KEY       # bearer token testers must send
+        sync: false
