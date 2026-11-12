@@ -18,8 +18,8 @@ MODEL_NAME = os.getenv("MODEL_NAME", "loan-default")
 MODEL_ALIAS = os.getenv("MODEL_ALIAS", "champion")
 SCORING_URL = os.getenv("SCORING_URL")  # optional: remote MLflow-style scoring service
 API_KEY = os.getenv("API_KEY")  # unset locally and in CI: no key needed
-# Dockerfile build-arg, or Render's automatic RENDER_GIT_COMMIT on deploy.
-GIT_SHA = os.getenv("GIT_SHA") or os.getenv("RENDER_GIT_COMMIT", "dev")
+# Prefer Render's commit; fall back to image build-arg; local default "dev".
+GIT_SHA = os.getenv("RENDER_GIT_COMMIT") or os.getenv("GIT_SHA") or "dev"
 FEATURES = ["amount_usd", "term_months", "monthly_income_usd", "previous_loans", "late_payments"]
 
 

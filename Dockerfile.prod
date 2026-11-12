@@ -16,7 +16,9 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /app/model.joblib .
 COPY schemas.py main.py ./
-ARG GIT_SHA=dev
+# Only set when the pipeline passes --build-arg GIT_SHA=...; otherwise
+# main.py reads RENDER_GIT_COMMIT at runtime on Render.
+ARG GIT_SHA=
 ENV GIT_SHA=$GIT_SHA
 USER appuser
 EXPOSE 8000
