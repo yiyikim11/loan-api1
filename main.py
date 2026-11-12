@@ -109,7 +109,8 @@ def score(features: LoanFeatures) -> Prediction:
 @app.get("/live")
 def live():
     """Liveness for Render healthCheckPath — process is up."""
-    return {"status": "ok"}
+    # INTENTIONAL BREAK (Step 5 drill): Render health checks /live and will fail.
+    return JSONResponse(status_code=503, content={"status": "down"})
 
 
 @app.get("/health")
