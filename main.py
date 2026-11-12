@@ -114,7 +114,12 @@ def live():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_version": ml.get("version"), "git_sha": GIT_SHA}
+    return {
+        "status": "ok",
+        "service": "loan-api",
+        "model_version": ml.get("version"),
+        "git_sha": GIT_SHA,
+    }
 
 
 @app.post("/api/v1/predictions", response_model=Prediction)
